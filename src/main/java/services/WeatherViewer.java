@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -28,10 +27,10 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 
-public class WeatherView {
+public class WeatherViewer {
     private final WeatherService weatherService;
 
-    public WeatherView(WeatherService weatherService) {
+    public WeatherViewer(WeatherService weatherService) {
         this.weatherService = weatherService;
     }
 
@@ -39,10 +38,31 @@ public class WeatherView {
         Spark.get("/weather", ((request, response) -> getWeather(request, response)));
     }
 
+    /**
+     * Обрабатывает HTTP-запрос для получения информации о погоде в указанном городе.
+     *
+     * <p>Метод выполняет следующие действия:
+     * <ol>
+     *   <li>Извлекает название города из параметров запроса</li>
+     *   <li>Получает данные о погоде через WeatherService</li>
+     *   <li>Генерирует SVG-график температуры</li>
+     *   <li>Загружает HTML-шаблон страницы</li>
+     *   <li>Заполняет шаблон данными о погоде</li>
+     *   <li>Возвращает сформированную HTML-страницу</li>
+     * </ol>
+     *
+     * @param request HTTP-запрос, должен содержать параметр "city"
+     * @param response HTTP-ответ, в который будет установлен тип содержимого
+     * @return HTML-страница с информацией о погоде или null в случае ошибки
+     */
     String getWeather(Request request, Response response) {
-
-        //Получаем город из запроса
+        System.out.println(request.body());
+        //Получаем город из запроса и проверяем его
         String city = request.queryParams("city");
+        if (city == null || city.isEmpty()) {
+            response.status(404);
+            return null;
+        }
 
         //Запрашиваем погоду по городу
         WeatherData weatherData;
@@ -76,9 +96,13 @@ public class WeatherView {
         //Возвращаем ответ в виде HTML страницы
         response.type("text/html");
         return html;
-
     }
 
+    /**
+     * Принимает на вход список значений температуры ко времени и находит ближайшее по времени значение
+     * @param temperatureList лист значений
+     * @return температуру на текущий час, String
+     */
     private String getCurrentTemperature(List<Temperature> temperatureList) {
         LocalTime timeNow = LocalDateTime.now().toLocalTime();
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
@@ -99,18 +123,28 @@ public class WeatherView {
         return String.format("%.1f", closestTemp);
     }
 
+    /**
+     * Генерирует SVG-график температуры на основе данных о погоде
+     * @param weatherData объект с данными о температуре
+     * @return SVG-изображение графика в виде строки XML
+     */
     private String generateTemperatureChartSVG(WeatherData weatherData) {
-
+        // Создаем набор данных для графика
         DefaultCategoryDataset dataset = new DefaultCategoryDataset();
-
+        // Заполняем данными о температуре
         for (Temperature temperature : weatherData.temperature()) {
             dataset.addValue(temperature.value(), "Temperature", temperature.time().substring(0,5));
         }
 
+        // - Без заголовка
+        // - Ось X: "Hours" (Часы)
+        // - Ось Y: "Temperature (C)"
+        // - Ориентация: вертикальная
+        // - Без легенды, подсказок и URL
         JFreeChart chart = ChartFactory.createLineChart(
                 null,
-                "Time",
-                "Temperature  (°C)",
+                "Hours",
+                "Temperature (C)",
                 dataset,
                 PlotOrientation.VERTICAL,
                 false,
@@ -118,42 +152,40 @@ public class WeatherView {
                 false
         );
 
-
+        //Применяем кастомный дизайн к графику
         customizeChartDesign(chart);
 
-        SVGGraphics2D g2 = new SVGGraphics2D(800, 400);
-        chart.draw(g2, new Rectangle2D.Double(0, 0, 800, 400));
+        //Рисуем график в SVG
+        SVGGraphics2D g2 = new SVGGraphics2D(950, 400);
+        chart.draw(g2, new Rectangle2D.Double(0, 0, 950, 400));
         return g2.getSVGElement();
     }
 
+    /**
+     * Настраивает дизайн графика
+     * @param chart объект графика для настройки
+     */
     private void customizeChartDesign(JFreeChart chart) {
 
+        // Получаем область рисования графика
         CategoryPlot plot = chart.getCategoryPlot();
-
-
         LineAndShapeRenderer renderer = (LineAndShapeRenderer) plot.getRenderer();
-        renderer.setSeriesPaint(0, new Color(70, 130, 180)); // SteelBlue
-        renderer.setSeriesStroke(0, new BasicStroke(3f));
+
+        // Устанавливаем зеленый цвет линии
+        renderer.setSeriesPaint(0, new Color(8, 113, 0));
+        // Толщина линии графика - 3 пикселя
+        renderer.setSeriesStroke(0, new BasicStroke(2f));
+        // Включаем отображение точек на графике
         renderer.setSeriesShapesVisible(0, true);
+        // Форма точек - круги диаметром 6 пикселей
         renderer.setSeriesShape(0, new Ellipse2D.Double(-3, -3, 6, 6));
+        // Белый фон области графика
+        plot.setBackgroundPaint(new Color(255, 255, 255));
+        // Цвет сетки по оси Y (полупрозрачный зеленый)
+        plot.setRangeGridlinePaint(new Color(13, 73, 16, 56));
 
-
-        plot.setBackgroundPaint(new Color(245, 245, 245));
-        plot.setDomainGridlinePaint(Color.WHITE);
-        plot.setRangeGridlinePaint(new Color(220, 220, 220));
-
-
-        Font axisFont = new Font("Arial", Font.PLAIN, 6);
+        // Настраиваем шрифт меток:
+        Font axisFont = new Font("Ubuntu", Font.BOLD, 10);
         plot.getDomainAxis().setTickLabelFont(axisFont);
-        plot.getRangeAxis().setTickLabelFont(axisFont);
-        plot.getRangeAxis().setLabelFont(axisFont.deriveFont(Font.BOLD));
-
-
-        GradientPaint gradient = new GradientPaint(
-                0, 0, new Color(70, 130, 180, 100),
-                0, 400, new Color(70, 130, 180, 20)
-        );
-        renderer.setSeriesFillPaint(0, gradient);
-
     }
 }
