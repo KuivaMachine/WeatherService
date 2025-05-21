@@ -57,6 +57,6 @@
 
 <div align="center">
  <picture>
-  <img src="https://github.com/KuivaMachine/UniversityCRUDapp/blob/master/screen.png"alt="Описание изображения">
+  <img src="https://github.com/KuivaMachine/WeatherService/blob/master/src/main/resources/image.png"alt="Описание изображения">
 </picture>
 </div>
