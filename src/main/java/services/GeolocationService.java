@@ -10,7 +10,6 @@ import okhttp3.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 
 public class GeolocationService {
     private static final String GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search";
@@ -34,14 +33,14 @@ public class GeolocationService {
 
         try (Response response = okHttpClient.newCall(request).execute()) {
             if (!response.isSuccessful() || response.body() == null) {
-                logger.error("При запросе произошла ошибка: {}", response.code());
+                logger.error("During requesting temperature by city \"{}\" an error has occurred: {}",city, response.code());
                 return null;
             }
 
             JsonObject json = gson.fromJson(response.body().string(), JsonObject.class);
             JsonArray results = json.getAsJsonArray("results");
             if (results == null) {
-                logger.error(String.format("При запросе координат города \"%s\" сервер вернул пустой результат", city));
+                logger.error(String.format("When requesting the coordinates of the city \"%s\", the server returned an empty result", city));
                 return null;
             }
             JsonObject firstResult = results.get(0).getAsJsonObject();
@@ -51,7 +50,7 @@ public class GeolocationService {
             return new Coordinates(latitude, longitude);
 
         } catch (Exception e) {
-            logger.error(String.format("При запросе координат города \"%s\" произошла ошибка - %s", city, e.getMessage()));
+            logger.error(String.format("An error occurred when requesting the coordinates of the city \"%s\" - %s", city, e.getMessage()));
         }
         return null;
     }

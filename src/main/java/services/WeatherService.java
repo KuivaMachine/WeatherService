@@ -9,32 +9,23 @@ import data.WeatherData;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
-import org.jfree.chart.ChartFactory;
-import org.jfree.chart.JFreeChart;
-import org.jfree.chart.axis.CategoryAxis;
-import org.jfree.chart.axis.ValueAxis;
-import org.jfree.chart.plot.CategoryPlot;
-import org.jfree.chart.plot.IntervalMarker;
-import org.jfree.chart.plot.Marker;
-import org.jfree.chart.plot.PlotOrientation;
-import org.jfree.chart.renderer.category.LineAndShapeRenderer;
-import org.jfree.chart.title.TextTitle;
-import org.jfree.chart.ui.Layer;
-import org.jfree.data.category.DefaultCategoryDataset;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.awt.*;
-import java.awt.geom.Ellipse2D;
-import java.awt.image.BufferedImage;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.List;
 
+/**
+ * Сервис для получения прогноза погоды по названию города.
+ * Обеспечивает:
+ * - Получение данных через Open-Meteo API
+ * - Кэширование результатов в Redis
+ * - Преобразование данных из Json в объектную модель (WeatherData.class)
+ */
 public class WeatherService {
     private static final String WEATHER_URL = "https://api.open-meteo.com/v1/forecast";
-    private static final int CACHE_TTL_SECONDS = 900; // 15 minutes
+    private static final int CACHE_TTL_SECONDS = 900; // 15 минут
     private static final Logger logger = LoggerFactory.getLogger(WeatherService.class);
 
     private final RedisService redis;
@@ -49,29 +40,37 @@ public class WeatherService {
         this.gson = new Gson();
     }
 
-    public WeatherData getWeather(String city) {
-        // Try to get from cache first
-//        WeatherData cachedData = redisCache.getWeather(city);
-//        if (cachedData != null) {
-//            return cachedData;
-//        }
+    /**
+     * Получает прогноз температуры на сутки для указанного города
+     * @param city название города (например: "Moscow")
+     * @return объект WeatherData с прогнозом температуры или null, если город не найден или произошла ошибка
+     */
+    WeatherData getWeather(String city) {
 
-        // Get coordinates
-        Coordinates coordinates = geolocation.getCoordinates(city);
-        if (coordinates == null) {
-            logger.error("City not found");
+        // Запрашиваем данные из кэша. Возвращаем, если успешно.
+        WeatherData savedData = redis.getSavedWeather(city);
+        if (savedData != null) {
+            return savedData;
         }
 
-        // Get weather data
+        // Запрос координат города
+        Coordinates coordinates = geolocation.getCoordinates(city);
+        if (coordinates == null) {
+            logger.error("City \"{}\" was not found", city);
+            return null;
+        }
+
+        // Запрос температуры на сутки по городу
         String url = String.format("%s?latitude=%s&longitude=%s&hourly=temperature_2m",
                 WEATHER_URL, coordinates.latitude(), coordinates.longitude());
         Request request = new Request.Builder().url(url).build();
-
         try (Response response = httpClient.newCall(request).execute()) {
-            if (!response.isSuccessful()) {
-                logger.error("Weather API request failed");
+            if (!response.isSuccessful()||response.body()==null) {
+                logger.error("During temperature request an error has occurred: {}", response.code());
+                return null;
             }
 
+            //Строим данные из ответа json с сервера
             String responseBody = response.body().string();
             JsonObject json = gson.fromJson(responseBody, JsonObject.class);
             JsonObject hourly = json.getAsJsonObject("hourly");
@@ -83,6 +82,7 @@ public class WeatherService {
             DateTimeFormatter formatter = DateTimeFormatter.ISO_DATE_TIME;
             DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
 
+            //Записываем данные в класс WeatherData
             for (int i = 0; i < timeArray.size(); i++) {
                 String timeStr = timeArray.get(i).getAsString();
                 LocalDateTime time = LocalDateTime.parse(timeStr, formatter);
@@ -90,13 +90,19 @@ public class WeatherService {
 
                 hourlyTemps.add(new Temperature(time.format(timeFormatter), temp));
             }
+            WeatherData weatherData =  new WeatherData(city, coordinates, hourlyTemps);
 
+            //Сохраняем данные о температуре в кэш на 15 минут
+            if(redis.saveWeather(weatherData, CACHE_TTL_SECONDS)){
+                logger.info("Temperature data by city \"{}\" was saved", city);
+            }else {
+                logger.info("During saving temperature data by \"{}\" city an error has occurred", city);
 
-//            redisCache.cacheWeather(city, weatherData, CACHE_TTL_SECONDS);
-            return new WeatherData(city, coordinates, hourlyTemps);
+            }
+            return weatherData;
 
         } catch (Exception exception) {
-            logger.error("Error getting weather data", exception);
+            logger.error("During request an error has occurred: - {}", exception.getMessage());
         }
         return null;
     }

@@ -16,9 +16,16 @@ import spark.Spark;
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Rectangle2D;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 
 public class WeatherView {
@@ -32,40 +39,73 @@ public class WeatherView {
         Spark.get("/weather", ((request, response) -> getWeather(request, response)));
     }
 
-    public Object getWeather(Request req, Response res) {
-        String city = req.queryParams("city");
+    String getWeather(Request request, Response response) {
+
+        //Получаем город из запроса
+        String city = request.queryParams("city");
+
+        //Запрашиваем погоду по городу
+        WeatherData weatherData;
         try {
-            WeatherData weatherData = weatherService.getWeather(city);
-            String svg = generateTemperatureChartSVG(weatherData);
+            weatherData = weatherService.getWeather(city);
+        } catch (Exception e) {
+            response.status(500);
+            return null;
+        }
 
+        //Строим SVG график
+        String svg = generateTemperatureChartSVG(weatherData);
 
-            String htmlTemplate = Files.readString(
+        //Читаем HTML страницу из resources
+        String htmlTemplate;
+        try {
+            htmlTemplate = Files.readString(
                     Paths.get("src/main/resources/weather_page.html"),
                     StandardCharsets.UTF_8
             );
-
-
-            String html = htmlTemplate
-                    .replace("{{city}}", city)
-                    .replace("{{chart}}", svg);
-
-            res.type("text/html");
-            return html;
-        } catch (Exception e) {
-            res.status(500);
-            return "Error: " + e.getMessage();
+        } catch (IOException e) {
+            return null;
         }
+
+        //Вставляем в templates название города и график
+        String html = htmlTemplate
+                .replace("{{city}}", city)
+                .replace("{{temperature}}", getCurrentTemperature(weatherData.temperature()))
+                .replace("{{chart}}", svg);
+
+        //Возвращаем ответ в виде HTML страницы
+        response.type("text/html");
+        return html;
+
     }
 
+    private String getCurrentTemperature(List<Temperature> temperatureList) {
+        LocalTime timeNow = LocalDateTime.now().toLocalTime();
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
 
-    public String generateTemperatureChartSVG(WeatherData weatherData) {
+        double closestTemp = 0;
+        long minDiff = Long.MAX_VALUE;
+        for (Temperature temperature : temperatureList) {
+            // Парсим время из температуры
+            LocalTime tempTime = LocalTime.parse(temperature.time(), timeFormatter);
+            // Вычисляем разницу во минутах между текущим временем и временем в данных
+            long diff = Math.abs(ChronoUnit.MINUTES.between(timeNow, tempTime));
+            // Если нашли более близкое по времени значение
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestTemp = temperature.value();
+            }
+        }
+        return String.format("%.1f", closestTemp);
+    }
+
+    private String generateTemperatureChartSVG(WeatherData weatherData) {
 
         DefaultCategoryDataset dataset = new DefaultCategoryDataset();
 
         for (Temperature temperature : weatherData.temperature()) {
             dataset.addValue(temperature.value(), "Temperature", temperature.time().substring(0,5));
         }
-
 
         JFreeChart chart = ChartFactory.createLineChart(
                 null,

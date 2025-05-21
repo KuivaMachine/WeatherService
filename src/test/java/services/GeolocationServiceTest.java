@@ -17,8 +17,8 @@ public class GeolocationServiceTest {
 
         // Assert
         assertNotNull(coordinates);
-        assertEquals(55.75222, coordinates.latitude());
-        assertEquals(37.61556, coordinates.longitude());
+        assertEquals("55.75222", coordinates.latitude());
+        assertEquals("37.61556", coordinates.longitude());
     }
 
 
