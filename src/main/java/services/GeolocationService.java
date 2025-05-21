@@ -29,6 +29,7 @@ public class GeolocationService {
      */
     public Coordinates getCoordinates(String city) {
         String url = String.format("%s?name=%s&count=1", GEOCODING_URL, city);
+        System.out.println(url);
         Request request = new Request.Builder().url(url).build();
 
         try (Response response = okHttpClient.newCall(request).execute()) {

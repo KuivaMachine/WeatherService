@@ -1,10 +1,12 @@
 plugins {
     id("java")
+    id("application")
 }
-
 group = "ru.zaostrovtsev"
-version = "1.0-SNAPSHOT"
-
+version = "1.0"
+application {
+    mainClass.set("MainClass")
+}
 repositories {
     mavenCentral()
 }

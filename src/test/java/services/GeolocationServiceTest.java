@@ -27,7 +27,7 @@ public class GeolocationServiceTest {
         //Arrange
         GeolocationService service = new GeolocationService();
         //Act
-        Coordinates coordinates = service.getCoordinates("Москва");
+        Coordinates coordinates = service.getCoordinates("");
         //Assert
         assertNull(coordinates);
     }

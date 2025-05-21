@@ -49,7 +49,7 @@ public class WeatherServiceTest {
     public void getWeather_ShouldReturnNull_WhenWrongCity() {
         //Arrange
         //Act
-        WeatherData weatherData = weatherService.getWeather("Москва");
+        WeatherData weatherData = weatherService.getWeather("");
         //Assert
         assertNull(weatherData);
     }
