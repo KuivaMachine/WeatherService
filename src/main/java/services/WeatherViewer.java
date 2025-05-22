@@ -118,6 +118,7 @@ public class WeatherViewer {
             if (diff < minDiff) {
                 minDiff = diff;
                 closestTemp = temperature.value();
+                System.out.println(String.format("NOW - %s, TIME - %s, TEMP - %s", timeNow, tempTime, closestTemp));
             }
         }
         return String.format("%.1f", closestTemp);
@@ -156,8 +157,8 @@ public class WeatherViewer {
         customizeChartDesign(chart);
 
         //Рисуем график в SVG
-        SVGGraphics2D g2 = new SVGGraphics2D(950, 400);
-        chart.draw(g2, new Rectangle2D.Double(0, 0, 950, 400));
+        SVGGraphics2D g2 = new SVGGraphics2D(950, 500);
+        chart.draw(g2, new Rectangle2D.Double(0, 0, 950, 500));
         return g2.getSVGElement();
     }
 
@@ -182,7 +183,7 @@ public class WeatherViewer {
         // Белый фон области графика
         plot.setBackgroundPaint(new Color(255, 255, 255));
         // Цвет сетки по оси Y (полупрозрачный зеленый)
-        plot.setRangeGridlinePaint(new Color(13, 73, 16, 56));
+        plot.setRangeGridlinePaint(new Color(0, 30, 1, 161));
 
         // Настраиваем шрифт меток:
         Font axisFont = new Font("Ubuntu", Font.BOLD, 10);

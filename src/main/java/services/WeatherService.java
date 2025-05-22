@@ -61,8 +61,9 @@ public class WeatherService {
         }
 
         // Запрос температуры на сутки по городу
-        String url = String.format("%s?latitude=%s&longitude=%s&hourly=temperature_2m",
+        String url = String.format("%s?latitude=%s&longitude=%s&hourly=temperature_2m&forecast_days=1",
                 WEATHER_URL, coordinates.latitude(), coordinates.longitude());
+        System.out.println(url);
         Request request = new Request.Builder().url(url).build();
         try (Response response = httpClient.newCall(request).execute()) {
             if (!response.isSuccessful()||response.body()==null) {
@@ -89,6 +90,7 @@ public class WeatherService {
                 double temp = tempArray.get(i).getAsDouble();
 
                 hourlyTemps.add(new Temperature(time.format(timeFormatter), temp));
+                System.out.println(String.format("TIME - %s, TEMP - %s",time, temp));
             }
             WeatherData weatherData =  new WeatherData(city, coordinates, hourlyTemps);
 
