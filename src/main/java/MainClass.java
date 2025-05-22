@@ -11,7 +11,7 @@ public class MainClass {
         //Указываем порт, на котором будет работать сервис
         port(9090);
 
-        //ициализируем сервисы
+        //Инициализируем сервисы
         GeolocationService geolocation = new GeolocationService();
         WeatherService weatherService = new WeatherService(geolocation);
         WeatherViewer weatherViewer = new WeatherViewer(weatherService);
