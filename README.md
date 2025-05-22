@@ -30,7 +30,7 @@
     docker run --name weather_redis -p 6379:6379 -d redis
 Скачайте репозиторий:
 
-    git clone https://github.com/ваш-репозиторий/weather-service.git
+    git clone https://github.com/KuivaMachine/WeatherService.git
 
 Перейдите в директорию с программой:
     
